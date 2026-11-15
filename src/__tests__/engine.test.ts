@@ -7,7 +7,12 @@ import {
 } from '../constants/sampleSquad';
 import { optimizeLineup } from '../engine/lineupOptimizer';
 import { calculateSectorGoalProb, simulateMatch } from '../engine/matchSimulator';
-import { parseHattrickCopyPaste, parseHattrickPlayersXml } from '../engine/parsers';
+import {
+  parseHattrickCopyPaste,
+  parseHattrickExcelText,
+  parseHattrickPlayersXml,
+  parseHattrickTableGrid,
+} from '../engine/parsers';
 import { calculateTeamRatings } from '../engine/ratingsEngine';
 import {
   calculateWeeksToSkillUp,
@@ -273,5 +278,132 @@ Standardní situace: nedostatečný
     expect(players[0].motherClubBonus).toBe(true);
     expect(players[0].injuredWeeks).toBe(-1);
     expect(players[0].skills.keeper).toBe(9);
+  });
+
+  it('správně parsuje Foxtrick Excel export (45 sloupců včetně NejP, věku s daty a specialit)', () => {
+    const csv = `-,Nár,Hráč,Sp,Stav,Věk,Přišel,TSI,Vůd,Zk,Fo,Kon,Odd,Odch,Ch,Br,TH,Kř,Př,Za,St,Psico,PsicoW,Posl,Hv,Poz,Plat,Z. plat,W++,MC,GL,GPo,GC,G,HT,Por,HV,Br,KO,SO,KZ,SZ,Ú,Útd,NejP
+,Česko,"484196163 Petr Janda",,,2026-10-19,30.08.2025,"2 040",chabý (2),neexistující (0),dobrá (7),přijatelná (6),božská (20),ne,"18 840 Kč/týden",katastrofální (1),solidní (8),chabý (2),slabé (4),slabé (4),chabý (2),nedostatečné (4),0,0,0,0,SZ,"18 840 Kč",,"393 000 Kč",,383,23.9,0.3,1.4,19.3,2,6.5,,5.7,5.5,6.1,6.5,5.1,5.2,SZ
+,Česko,"483664797 Vojtěch Hrstka",,,2026-10-28,09.08.2025,"1 180",slabý (3),neexistující (0),dobrá (7),nedostatečná (5),božská (20),ne,"14 040 Kč/týden",katastrofální (1),solidní (8),chabý (2),chabý (2),nedostatečné (5),chabý (2),katastrofální (1),0,0,0,0,SO,"14 040 Kč",,"145 000 Kč",,344,24.6,0.3,1.6,20.4,1,6.3,,5.6,6.3,5.6,5.6,4.6,5.4,SO
+,Česko,"460481191 Stanislav Šilhavý",Silový,ŽK×1,33.3,17.06.2023,"1 400",slabý (3),přijatelná (6),solidní (8),nedostatečná (5),božská (20),ne,"28 320 Kč/týden",katastrofální (1),přijatelné (6),chabý (2),chabý (2),solidní (8),slabé (4),katastrofální (1),0,0,0,0,KO,"28 320 Kč",,"16 000 Kč",,375,25.0,0.5,1.7,21.6,3,6.0,,6.0,5.7,5.7,5.4,4.7,5.3,KOd
+,Česko,"478988636 Petr Krob",Rychlý,Por,20.94,22.06.2024,"3 280",nedostatečný (4),bídná (1),solidní (8),přijatelná (6),božská (20),ne,"22 560 Kč/týden",katastrofální (1),nedostatečné (5),nedostatečné (5),přijatelné (6),přijatelné (6),přijatelné (6),katastrofální (1),0,0,0,0,KZ,"22 560 Kč",,"318 000 Kč",,404,23.8,0.7,2.2,21.0,4,6.2,,5.8,5.4,6.2,5.9,5.7,5.7,Ko
+,Česko,"467978253 Michal Jůza",Nepředvídatelný,,26.96,18.05.2024,"1 090",nedostatečný (4),nedostatečné (4),dobrá (7),přijatelná (6),božská (20),ne,"16 440 Kč/týden",katastrofální (1),slabé (4),chabý (2),chabý (2),chabý (2),výborné (9),chabý (2),0,0,0,0,Ú,"16 440 Kč",,"117 000 Kč",,332,23.7,0.4,1.8,21.9,1,5.6,,4.1,4.4,4.2,4.4,5.6,5.3,Únk
+,,,Klikněte pro více informací,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,`;
+
+    const players = parseHattrickExcelText(csv);
+    expect(players.length).toBe(5);
+
+    // 1. Petr Janda
+    expect(players[0].id).toBe(484196163);
+    expect(players[0].name).toBe('Petr Janda');
+    expect(players[0].nationality).toBe('Česko');
+    expect(players[0].ageYears).toBe(19);
+    expect(players[0].ageDays).toBe(10);
+    expect(players[0].tsi).toBe(2040);
+    expect(players[0].skills.defending).toBe(8);
+    expect(players[0].preferredPosition).toBe('SZ');
+    expect(players[0].preferredSlot).toBe('CIM');
+
+    // 2. Vojtěch Hrstka
+    expect(players[1].id).toBe(483664797);
+    expect(players[1].name).toBe('Vojtěch Hrstka');
+    expect(players[1].ageYears).toBe(28);
+    expect(players[1].ageDays).toBe(10);
+    expect(players[1].skills.defending).toBe(8);
+    expect(players[1].skills.passing).toBe(5);
+    expect(players[1].preferredPosition).toBe('SO');
+    expect(players[1].preferredSlot).toBe('CD');
+
+    // 3. Stanislav Šilhavý
+    expect(players[2].id).toBe(460481191);
+    expect(players[2].name).toBe('Stanislav Šilhavý');
+    expect(players[2].specialty).toBe('Powerful');
+    expect(players[2].cards).toBe(1);
+    expect(players[2].ageYears).toBe(33);
+    expect(players[2].ageDays).toBe(30);
+    expect(players[2].skills.passing).toBe(8);
+    expect(players[2].preferredPosition).toBe('KOd');
+    expect(players[2].preferredSlot).toBe('RWB');
+    expect(players[2].preferredOrder).toBe('defensive');
+
+    // 4. Petr Krob (zraněný - náplast)
+    expect(players[3].id).toBe(478988636);
+    expect(players[3].name).toBe('Petr Krob');
+    expect(players[3].specialty).toBe('Quick');
+    expect(players[3].injuredWeeks).toBe(-1);
+    expect(players[3].preferredPosition).toBe('Ko');
+    expect(players[3].preferredSlot).toBe('RWB');
+    expect(players[3].preferredOrder).toBe('offensive');
+
+    // 5. Michal Jůza (Nepředvídatelný, Únk)
+    expect(players[4].id).toBe(467978253);
+    expect(players[4].name).toBe('Michal Jůza');
+    expect(players[4].specialty).toBe('Unpredictable');
+    expect(players[4].skills.scoring).toBe(9);
+    expect(players[4].preferredPosition).toBe('Únk');
+    expect(players[4].preferredSlot).toBe('RFW');
+    expect(players[4].preferredOrder).toBe('towards_wing');
+  });
+
+  it('správně parsuje strukturu z Excel souboru soupiska_15.11.26.xlsx včetně serial date věku', () => {
+    const grid = [
+      [
+        '-', 'Nár', 'Hráč', 'Sp', 'Stav', 'Věk', 'Přišel', 'TSI',
+        'Vůd', 'Zk', 'Fo', 'Kon', 'Odd', 'Odch', 'Ch', 'Br',
+        'TH', 'Kř', 'Př', 'Za', 'St', 'Psico', 'PsicoW', 'Posl',
+        'Hv', 'Poz', 'Plat', 'Z. plat', 'W++', 'MC', 'GL', 'GPo',
+        'GC', 'G', 'HT', 'Por', 'HV', 'Br', 'KO', 'SO',
+        'KZ', 'SZ', 'Ú', 'Útd', 'NejP'
+      ],
+      [
+        '–', 'Italy', 'Diego Rengo (513516658)', 'Technický', null, '18.45',
+        '1 s 1 týd. 6 d', 5050, 3, 2, 4, 6, 12, null, 1, 8,
+        5, 8, 6, 3, 1, 878, null, 46337, 46145, 'SO', 33120, 27600,
+        '✔', 15, 0, 0, 2, 2, 0, -513516658, -513516658, 24504, 19115,
+        44682, 30042, 45017, 28550, 46146, 'KOd'
+      ],
+      [
+        '–', 'Lithuania', 'Aleksys Liubšys (511482584)', null, null, 46314,
+        '1 s 2 týd. 5 d', 2760, 4, 1, 4, 5, 12, null, 1, 9,
+        6, 3, 5, 2, 1, 638, null, 46337, 46271, 'SO', 27840, 23200,
+        '✔', 15, 0, 0, 2, 2, 0, -511482584, -511482584, 21858, 17056,
+        45048, 26978, 44747, 25488, 46272, 'SO'
+      ]
+    ];
+
+    const players = parseHattrickTableGrid(grid);
+    expect(players.length).toBe(2);
+
+    // Diego Rengo
+    const p1 = players[0];
+    expect(p1.id).toBe(513516658);
+    expect(p1.name).toBe('Diego Rengo');
+    expect(p1.nationality).toBe('Italy');
+    expect(p1.specialty).toBe('Technical');
+    expect(p1.ageYears).toBe(18);
+    expect(p1.ageDays).toBe(45);
+    expect(p1.tsi).toBe(5050);
+    expect(p1.skills.keeper).toBe(1);
+    expect(p1.skills.defending).toBe(8);
+    expect(p1.skills.playmaking).toBe(5);
+    expect(p1.skills.winger).toBe(8);
+    expect(p1.skills.passing).toBe(6);
+    expect(p1.skills.scoring).toBe(3);
+    expect(p1.skills.setPieces).toBe(1);
+    expect(p1.preferredPosition).toBe('KOd');
+    expect(p1.preferredSlot).toBe('RWB');
+    expect(p1.preferredOrder).toBe('defensive');
+
+    // Aleksys Liubšys (Excel serial 46314 -> 19.10 -> 19 let, 10 dní)
+    const p2 = players[1];
+    expect(p2.id).toBe(511482584);
+    expect(p2.name).toBe('Aleksys Liubšys');
+    expect(p2.nationality).toBe('Lithuania');
+    expect(p2.ageYears).toBe(19);
+    expect(p2.ageDays).toBe(10);
+    expect(p2.skills.defending).toBe(9);
+    expect(p2.skills.playmaking).toBe(6);
+    expect(p2.preferredPosition).toBe('SO');
+    expect(p2.preferredSlot).toBe('CD');
+    expect(p2.preferredOrder).toBe('normal');
   });
 });

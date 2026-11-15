@@ -6,6 +6,8 @@ import {
   Download,
   FileCode2,
   FileJson,
+  FileSpreadsheet,
+  Heart,
   KeyRound,
   RefreshCw,
   RotateCcw,
@@ -13,13 +15,19 @@ import {
   X,
 } from 'lucide-react';
 import {
+  SPECIALTY_LABELS,
+  getSkillBadgeColor,
+} from '../constants/skillsAndTerms';
+import {
   parseHattrickCopyPaste,
+  parseHattrickExcelFile,
+  parseHattrickExcelText,
   parseHattrickPlayersXml,
   parseHattrickTrainingAndTeamXml,
 } from '../engine/parsers';
 import { ChppCredentials, ClubSettings, Player } from '../types/hattrick';
 
-type ImportTab = 'paste' | 'chpp' | 'xml' | 'json';
+type ImportTab = 'excel' | 'paste' | 'chpp' | 'xml' | 'json';
 
 interface ImportModalProps {
   isOpen: boolean;
@@ -59,9 +67,14 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   onImportJson,
   onResetSampleSquad,
 }) => {
-  const [tab, setTab] = useState<ImportTab>('paste');
+  const [tab, setTab] = useState<ImportTab>('excel');
   const [pasteText, setPasteText] = useState('');
   const [previewPlayers, setPreviewPlayers] = useState<Player[]>([]);
+  const [excelText, setExcelText] = useState('');
+  const [excelPreviewPlayers, setExcelPreviewPlayers] = useState<Player[]>([]);
+  const [excelFileName, setExcelFileName] = useState('');
+  const [isParsingExcel, setIsParsingExcel] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [importMode, setImportMode] = useState<'replace' | 'merge'>('replace');
   const [statusMsg, setStatusMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
@@ -84,6 +97,104 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const handleExcelFileUpload = async (file: File) => {
+    setIsParsingExcel(true);
+    setStatusMsg(null);
+    setExcelFileName(file.name);
+    try {
+      const parsed = await parseHattrickExcelFile(file);
+      if (parsed.length === 0) {
+        setStatusMsg({
+          type: 'err',
+          text: `V souboru „${file.name}“ nebyli nalezeni žádní hráči. Ujisti se, že soubor obsahuje export z Foxtricku nebo Hattricku.`,
+        });
+        setExcelPreviewPlayers([]);
+      } else {
+        setExcelPreviewPlayers(parsed);
+        setStatusMsg({
+          type: 'ok',
+          text: `Úspěšně načteno ${parsed.length} hráčů ze souboru „${file.name}“ (včetně věku, pozic a instrukcí)!`,
+        });
+      }
+    } catch (err) {
+      setStatusMsg({
+        type: 'err',
+        text: err instanceof Error ? err.message : 'Chyba při čtení Excel souboru.',
+      });
+      setExcelPreviewPlayers([]);
+    } finally {
+      setIsParsingExcel(false);
+    }
+  };
+
+  const handleExcelFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleExcelFileUpload(file);
+    }
+  };
+
+  const handleExcelDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleExcelFileUpload(file);
+    }
+  };
+
+  const handleAnalyzeExcelText = (text: string) => {
+    setExcelText(text);
+    setStatusMsg(null);
+    if (!text.trim()) {
+      setExcelPreviewPlayers([]);
+      return;
+    }
+    try {
+      const parsed = parseHattrickExcelText(text);
+      if (parsed.length > 0) {
+        setExcelPreviewPlayers(parsed);
+        setStatusMsg({
+          type: 'ok',
+          text: `Rozpoznáno ${parsed.length} hráčů z vložené tabulky!`,
+        });
+      } else {
+        const fallback = parseHattrickCopyPaste(text);
+        if (fallback.length > 0) {
+          setExcelPreviewPlayers(fallback);
+          setStatusMsg({
+            type: 'ok',
+            text: `Rozpoznáno ${fallback.length} hráčů (textový formát).`,
+          });
+        } else {
+          setExcelPreviewPlayers([]);
+        }
+      }
+    } catch (err) {
+      setStatusMsg({
+        type: 'err',
+        text: err instanceof Error ? err.message : 'Chyba při analýze dat.',
+      });
+      setExcelPreviewPlayers([]);
+    }
+  };
+
+  const handleConfirmExcelImport = () => {
+    if (excelPreviewPlayers.length === 0) {
+      setStatusMsg({
+        type: 'err',
+        text: 'Není vybrán žádný platný seznam hráčů pro import.',
+      });
+      return;
+    }
+    onImportPlayers(excelPreviewPlayers, importMode);
+    setStatusMsg({
+      type: 'ok',
+      text: `Úspěšně naimportováno ${excelPreviewPlayers.length} hráčů do kádru!`,
+    });
+    setTimeout(() => onClose(), 800);
+  };
 
   const handleAnalyzePaste = (text: string) => {
     setPasteText(text);
@@ -265,12 +376,12 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-ht-border bg-ht-panel shadow-2xl">
+      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-ht-border bg-ht-panel shadow-2xl">
         <div className="flex items-center justify-between border-b border-ht-border px-6 py-4">
           <div>
             <h2 className="text-lg font-bold text-white">Import kádru & Synchronizace Hattrick</h2>
             <p className="text-xs text-slate-400">
-              Načti svůj skutečný tým přes CHPP OAuth, XML soubor nebo zkopírovaný text ze stránky Hattricku.
+              Načti svůj tým přes Excel (.xlsx, .csv), CHPP OAuth, XML soubor nebo zkopírovaný text z Hattricku.
             </p>
           </div>
           <button
@@ -282,7 +393,18 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         </div>
 
         {/* Tab Switcher */}
-        <div className="grid grid-cols-4 gap-1 border-b border-ht-border bg-[#0c1310]/60 p-2">
+        <div className="grid grid-cols-2 gap-1 border-b border-ht-border bg-[#0c1310]/60 p-2 sm:grid-cols-5">
+          <button
+            onClick={() => setTab('excel')}
+            className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition ${
+              tab === 'excel'
+                ? 'bg-emerald-600 text-white'
+                : 'text-slate-300 hover:bg-ht-card'
+            }`}
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            <span>Excel / XLSX</span>
+          </button>
           <button
             onClick={() => setTab('paste')}
             className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition ${
@@ -292,7 +414,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             }`}
           >
             <ClipboardPaste className="h-4 w-4" />
-            <span>Copy-Paste z webu</span>
+            <span>Copy-Paste text</span>
           </button>
           <button
             onClick={() => setTab('chpp')}
@@ -325,7 +447,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             }`}
           >
             <FileJson className="h-4 w-4" />
-            <span>Záloha JSON / Reset</span>
+            <span>Záloha JSON</span>
           </button>
         </div>
 
@@ -344,6 +466,260 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 <AlertCircle className="h-4 w-4 shrink-0" />
               )}
               <span>{statusMsg.text}</span>
+            </div>
+          )}
+
+          {tab === 'excel' && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-ht-border bg-ht-card/60 p-3 text-xs text-slate-300">
+                <p className="font-semibold text-emerald-300">Import tabulky ze souboru nebo schránky (.xlsx, .xls, .csv, .tsv):</p>
+                <p className="mt-1 text-slate-300">
+                  Podporuje 45-sloupcový export z Foxtricku i běžné Excel tabulky. Aplikace automaticky převezme <strong>ID hráče, jméno, věk (roky i dny), specialitu, zdraví, karty, plat, formu, TSI, všech 7 dovedností</strong> i <strong>doporučené pozice a pokyny (NejP / Poz)</strong>, se kterými pak počítá optimalizátor sestavy.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={importMode === 'replace'}
+                      onChange={() => setImportMode('replace')}
+                      className="accent-emerald-500"
+                    />
+                    <span className="text-slate-200 font-medium">Nahradit celý kádr</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={importMode === 'merge'}
+                      onChange={() => setImportMode('merge')}
+                      className="accent-emerald-500"
+                    />
+                    <span className="text-slate-200 font-medium">Doplnit / aktualizovat existující</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Drag and Drop Zone */}
+              <label
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(true);
+                }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={handleExcelDrop}
+                className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-6 text-center transition ${
+                  isDragOver
+                    ? 'border-emerald-400 bg-emerald-500/10'
+                    : 'border-ht-border bg-[#0c1310]/60 hover:border-emerald-500/50'
+                }`}
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400">
+                  <FileSpreadsheet className="h-6 w-6" />
+                </div>
+                <div>
+                  <span className="text-sm font-semibold text-white">
+                    {excelFileName ? `Vybrán soubor: ${excelFileName}` : 'Přetáhni sem Excel soubor (.xlsx, .xls, .csv)'}
+                  </span>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Nebo klikni pro výběr souboru ze svého počítače
+                  </p>
+                </div>
+                {isParsingExcel && (
+                  <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>Zpracovávám tabulková data...</span>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/tab-separated-values"
+                  onChange={handleExcelFileChange}
+                  className="hidden"
+                />
+              </label>
+
+              {/* Quick Textarea Fallback for Clipboard paste */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400 font-medium">
+                  Nebo vlož zkopírovanou tabulku (buňky z Excelu / CSV text) ze schránky:
+                </label>
+                <textarea
+                  value={excelText}
+                  onChange={(e) => handleAnalyzeExcelText(e.target.value)}
+                  rows={3}
+                  placeholder="Vlož zkopírované buňky z Excelu nebo řádky oddělené středníkem/čárkou..."
+                  className="w-full rounded-xl border border-ht-border bg-[#0c1310] p-3 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Parsed Players Preview Table */}
+              {excelPreviewPlayers.length > 0 && (
+                <div className="space-y-3 rounded-2xl border border-emerald-500/30 bg-[#0c1310] p-4">
+                  <div className="flex items-center justify-between text-xs font-semibold text-emerald-300">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Rozpoznáno v tabulce: {excelPreviewPlayers.length} hráčů</span>
+                    </div>
+                    <span className="text-slate-400">
+                      Připraveno k nahrání do kádru ({importMode === 'replace' ? 'nahrazení' : 'sloučení'})
+                    </span>
+                  </div>
+
+                  <div className="max-h-72 overflow-x-auto overflow-y-auto rounded-xl border border-ht-border/80">
+                    <table className="w-full text-left text-[11px]">
+                      <thead className="sticky top-0 border-b border-ht-border bg-slate-900/90 uppercase tracking-wider text-slate-400 backdrop-blur-sm">
+                        <tr>
+                          <th className="px-2.5 py-2">Hráč</th>
+                          <th className="px-2 py-2 text-center">Nár</th>
+                          <th className="px-2 py-2 text-center">Věk</th>
+                          <th className="px-2 py-2 text-center">Specialita</th>
+                          <th className="px-2 py-2 text-center">Stav</th>
+                          <th className="px-2 py-2 text-center">NejP (Pokyn)</th>
+                          <th className="px-2 py-2 text-right">TSI</th>
+                          <th className="px-2 py-2 text-center" title="Brankář">BR</th>
+                          <th className="px-2 py-2 text-center" title="Bránění">OB</th>
+                          <th className="px-2 py-2 text-center" title="Tvorba hry">TV</th>
+                          <th className="px-2 py-2 text-center" title="Křídlo">KŘ</th>
+                          <th className="px-2 py-2 text-center" title="Přihrávky">PŘ</th>
+                          <th className="px-2 py-2 text-center" title="Zakončování">ZAK</th>
+                          <th className="px-2 py-2 text-center" title="Standardní situace">ST</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-ht-border/50 text-slate-200">
+                        {excelPreviewPlayers.map((p) => {
+                          const spec = SPECIALTY_LABELS[p.specialty];
+                          return (
+                            <tr key={p.id} className="hover:bg-ht-card/60 transition">
+                              <td className="px-2.5 py-1.5 font-medium text-white whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  <span>{p.name}</span>
+                                  {p.motherClubBonus && (
+                                    <Heart className="h-3 w-3 fill-rose-500 text-rose-500 inline" />
+                                  )}
+                                  <span className="text-[10px] text-slate-400 font-mono">({p.id})</span>
+                                </div>
+                              </td>
+                              <td className="px-2 py-1.5 text-center">
+                                {p.nationality ? (
+                                  <span className="rounded bg-sky-950/70 border border-sky-600/30 px-1 py-0.5 text-[9px] font-bold text-sky-300">
+                                    {p.nationality}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-600">—</span>
+                                )}
+                              </td>
+                              <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                                <span className={p.ageYears <= 20 ? 'font-bold text-emerald-400' : 'text-slate-300'}>
+                                  {p.ageYears}l {p.ageDays}d
+                                </span>
+                              </td>
+                              <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                                {p.specialty !== 'None' ? (
+                                  <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-200" title={spec.label}>
+                                    {spec.icon} {spec.short}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-600">—</span>
+                                )}
+                              </td>
+                              <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                                {p.injuredWeeks > 0 ? (
+                                  <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">
+                                    +{p.injuredWeeks}t
+                                  </span>
+                                ) : p.injuredWeeks === -1 ? (
+                                  <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                                    Náplast
+                                  </span>
+                                ) : p.cards >= 3 ? (
+                                  <span className="rounded bg-red-600/30 px-1.5 py-0.5 text-[10px] font-bold text-red-300">
+                                    Stopka
+                                  </span>
+                                ) : (
+                                  <span className="text-emerald-400 text-[10px]">OK</span>
+                                )}
+                              </td>
+                              <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                                {p.preferredPosition ? (
+                                  <span
+                                    className="rounded bg-emerald-950/70 border border-emerald-500/40 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300"
+                                    title={`Pozice: ${p.preferredPosition}${p.preferredSlot ? ` (${p.preferredSlot})` : ''}${p.preferredOrder ? ` • Pokyn: ${p.preferredOrder}` : ''}`}
+                                  >
+                                    {p.preferredPosition}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-600">—</span>
+                                )}
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono text-slate-300">
+                                {p.tsi.toLocaleString('cs-CZ')}
+                              </td>
+                              <td className="px-1.5 py-1.5 text-center">
+                                <span className={`inline-block min-w-[20px] rounded px-1 py-0.2 font-bold ${getSkillBadgeColor(p.skills.keeper)}`}>
+                                  {p.skills.keeper}
+                                </span>
+                              </td>
+                              <td className="px-1.5 py-1.5 text-center">
+                                <span className={`inline-block min-w-[20px] rounded px-1 py-0.2 font-bold ${getSkillBadgeColor(p.skills.defending)}`}>
+                                  {p.skills.defending}
+                                </span>
+                              </td>
+                              <td className="px-1.5 py-1.5 text-center">
+                                <span className={`inline-block min-w-[20px] rounded px-1 py-0.2 font-bold ${getSkillBadgeColor(p.skills.playmaking)}`}>
+                                  {p.skills.playmaking}
+                                </span>
+                              </td>
+                              <td className="px-1.5 py-1.5 text-center">
+                                <span className={`inline-block min-w-[20px] rounded px-1 py-0.2 font-bold ${getSkillBadgeColor(p.skills.winger)}`}>
+                                  {p.skills.winger}
+                                </span>
+                              </td>
+                              <td className="px-1.5 py-1.5 text-center">
+                                <span className={`inline-block min-w-[20px] rounded px-1 py-0.2 font-bold ${getSkillBadgeColor(p.skills.passing)}`}>
+                                  {p.skills.passing}
+                                </span>
+                              </td>
+                              <td className="px-1.5 py-1.5 text-center">
+                                <span className={`inline-block min-w-[20px] rounded px-1 py-0.2 font-bold ${getSkillBadgeColor(p.skills.scoring)}`}>
+                                  {p.skills.scoring}
+                                </span>
+                              </td>
+                              <td className="px-1.5 py-1.5 text-center">
+                                <span className={`inline-block min-w-[20px] rounded px-1 py-0.2 font-bold ${getSkillBadgeColor(p.skills.setPieces)}`}>
+                                  {p.skills.setPieces}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExcelPreviewPlayers([]);
+                        setExcelFileName('');
+                        setExcelText('');
+                      }}
+                      className="rounded-xl border border-ht-border px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
+                    >
+                      Vyčistit
+                    </button>
+                    <button
+                      onClick={handleConfirmExcelImport}
+                      className="flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-500 shadow-lg shadow-emerald-950"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Importovat {excelPreviewPlayers.length} hráčů do kádru</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

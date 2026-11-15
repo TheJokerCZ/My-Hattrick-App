@@ -45,6 +45,14 @@ export interface Player {
   skills: PlayerSkills;
   /** Vlastní poznámka uživatele */
   notes?: string;
+  /** Národnost hráče (např. Italy, Lithuania, Czechia) */
+  nationality?: string;
+  /** Preferovaná pozice / NejP kód (např. KOd, SO, SZo, Únk, Br) */
+  preferredPosition?: string;
+  /** Preferovaný individuální pokyn (např. defensive, offensive, towards_wing) */
+  preferredOrder?: PlayerOrder;
+  /** Preferovaný taktický slot (např. RWB, CD, CIM, RW, CFW, GK) */
+  preferredSlot?: SlotId;
 }
 
 export type SlotId =

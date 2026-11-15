@@ -39,24 +39,42 @@ function getSlotHeuristicScore(
   objective: OptimizerObjective
 ): number {
   const c = getSlotContribution(player, slotId, order, context.weather);
+  let base: number;
   if (objective === 'midfield') {
-    return c.midfield * 2.4 + (c.centerDef + c.leftDef + c.rightDef) * 0.5 + (c.centerAtt + c.leftAtt + c.rightAtt) * 0.5;
-  }
-  if (objective === 'counter_attack') {
-    return (
+    base = c.midfield * 2.4 + (c.centerDef + c.leftDef + c.rightDef) * 0.5 + (c.centerAtt + c.leftAtt + c.rightAtt) * 0.5;
+  } else if (objective === 'counter_attack') {
+    base = (
       (c.centerDef * 1.4 + c.leftDef * 1.2 + c.rightDef * 1.2) +
       (c.centerAtt * 1.1 + c.leftAtt * 1.0 + c.rightAtt * 1.0) +
       c.midfield * 0.3
     );
+  } else {
+    // Balanced / win_probability / hatstats
+    base = (
+      c.midfield * 1.55 +
+      c.centerDef * 1.0 +
+      (c.leftDef + c.rightDef) * 0.85 +
+      c.centerAtt * 1.0 +
+      (c.leftAtt + c.rightAtt) * 0.85
+    );
   }
-  // Balanced / win_probability / hatstats
-  return (
-    c.midfield * 1.55 +
-    c.centerDef * 1.0 +
-    (c.leftDef + c.rightDef) * 0.85 +
-    c.centerAtt * 1.0 +
-    (c.leftAtt + c.rightAtt) * 0.85
-  );
+
+  // Bonus za preferovaný slot a pokyn (např. z Foxtrick/Excel importu NejP / Poz)
+  let prefBonus = 0;
+  if (player.preferredSlot) {
+    const slotGroup = SLOT_META[slotId]?.group;
+    const prefGroup = SLOT_META[player.preferredSlot]?.group;
+    if (player.preferredSlot === slotId) {
+      prefBonus += 0.35;
+    } else if (slotGroup && prefGroup && slotGroup === prefGroup) {
+      prefBonus += 0.20;
+    }
+  }
+  if (player.preferredOrder && player.preferredOrder === order) {
+    prefBonus += 0.15;
+  }
+
+  return base + prefBonus;
 }
 
 function evaluateCandidateScore(

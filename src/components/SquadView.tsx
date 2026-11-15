@@ -236,6 +236,14 @@ export const SquadView: React.FC<SquadViewProps> = ({
                       <div>
                         <div className="flex items-center gap-1.5 font-semibold text-white">
                           <span>{p.name}</span>
+                          {p.nationality && (
+                            <span
+                              className="rounded border border-sky-600/40 bg-sky-950/80 px-1 py-0.2 text-[9px] font-bold text-sky-300"
+                              title={`Národnost: ${p.nationality}`}
+                            >
+                              {p.nationality}
+                            </span>
+                          )}
                           {p.motherClubBonus && (
                             <span title="Odchovanec (+0.5 ke všem dovednostem)">
                               <Heart className="h-3 w-3 fill-rose-500 text-rose-500" />
@@ -265,8 +273,16 @@ export const SquadView: React.FC<SquadViewProps> = ({
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-slate-400">
-                          {evalInfo?.recommendedRole}
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
+                          <span>{evalInfo?.recommendedRole}</span>
+                          {p.preferredPosition && (
+                            <span
+                              className="rounded border border-emerald-500/40 bg-emerald-950/70 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-300"
+                              title="Doporučená pozice a pokyn z Foxtricku / Excelu (NejP)"
+                            >
+                              NejP: {p.preferredPosition}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -379,6 +395,30 @@ export const SquadView: React.FC<SquadViewProps> = ({
                   onChange={(e) =>
                     setEditingPlayer({ ...editingPlayer, name: e.target.value })
                   }
+                  className="w-full rounded-lg border border-ht-border bg-[#0c1310] px-3 py-2 text-white"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-slate-400">Národnost</label>
+                <input
+                  type="text"
+                  value={editingPlayer.nationality ?? ''}
+                  onChange={(e) =>
+                    setEditingPlayer({ ...editingPlayer, nationality: e.target.value })
+                  }
+                  placeholder="např. Česká republika nebo CZ"
+                  className="w-full rounded-lg border border-ht-border bg-[#0c1310] px-3 py-2 text-white"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-slate-400">NejP (Pozice / Pokyn)</label>
+                <input
+                  type="text"
+                  value={editingPlayer.preferredPosition ?? ''}
+                  onChange={(e) =>
+                    setEditingPlayer({ ...editingPlayer, preferredPosition: e.target.value })
+                  }
+                  placeholder="např. KOd, SO, Únk..."
                   className="w-full rounded-lg border border-ht-border bg-[#0c1310] px-3 py-2 text-white"
                 />
               </div>
