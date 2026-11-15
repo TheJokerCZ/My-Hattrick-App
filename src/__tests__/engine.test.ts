@@ -19,6 +19,11 @@ import {
   evaluateProspects,
   recommendTrainings,
 } from '../engine/trainingAdvisor';
+import {
+  analyzeOpponentMatches,
+  convertAnalysisToOpponentProfile,
+  SAMPLE_SCOUTED_MATCHES_SLAVOJ,
+} from '../engine/scoutEngine';
 import { LineupAssignment } from '../types/hattrick';
 
 describe('Hattrick Ratings Engine', () => {
@@ -405,5 +410,37 @@ Standardní situace: nedostatečný
     expect(p2.preferredPosition).toBe('SO');
     expect(p2.preferredSlot).toBe('CD');
     expect(p2.preferredOrder).toBe('normal');
+  });
+
+  it('správně analyzuje zápasy soupeře, detekuje slabiny na krajích a sestaví OpponentProfile', () => {
+    const analysis = analyzeOpponentMatches(
+      SAMPLE_SCOUTED_MATCHES_SLAVOJ,
+      'FC Slavoj Pelhřimov'
+    );
+
+    expect(analysis.teamName).toBe('FC Slavoj Pelhřimov');
+    expect(analysis.matches.length).toBe(5);
+    expect(analysis.predictedFormation).toBe('3-5-2');
+    expect(analysis.predictedTactic).toBe('aim');
+    expect(analysis.weaknesses.length).toBeGreaterThan(0);
+    expect(analysis.tacticalAdvice.length).toBeGreaterThan(0);
+
+    // Ověříme, že analýza identifikovala děravé kraje obrany (Pravá obrana kolem 5.x vs Střed 8.8+)
+    const flankWeakness = analysis.weaknesses.some((w) =>
+      w.toLowerCase().includes('kraje obrany')
+    );
+    expect(flankWeakness).toBe(true);
+
+    // Ověříme pokles zálohy venku
+    expect(analysis.avgRatingsHome.midfield).toBeGreaterThan(
+      analysis.avgRatingsAway.midfield
+    );
+
+    // Převod na OpponentProfile
+    const profileWhenWePlayHome = convertAnalysisToOpponentProfile(analysis, true);
+    expect(profileWhenWePlayHome.name).toBe('FC Slavoj Pelhřimov');
+    expect(profileWhenWePlayHome.tactic).toBe('aim');
+    // Když hrajeme my doma, soupeř hraje venku (použijí se avgRatingsAway)
+    expect(profileWhenWePlayHome.ratings.midfield).toBe(analysis.avgRatingsAway.midfield);
   });
 });

@@ -275,6 +275,57 @@ export interface ChppCredentials {
   lastSyncAt?: string;
 }
 
+export interface ScoutedMatch {
+  id: number;
+  date: string;
+  matchType: 'league' | 'cup' | 'friendly';
+  homeTeamId: number;
+  homeTeamName: string;
+  awayTeamId: number;
+  awayTeamName: string;
+  homeScore: number;
+  awayScore: number;
+  isOpponentHome: boolean;
+  formation: FormationId;
+  tactic: TeamTactic;
+  tacticLevel: number;
+  ratings: SectorRatings;
+  hatStats: number;
+  starsTotal: number;
+  notes?: string;
+}
+
+export interface OpponentAnalysis {
+  teamId: number;
+  teamName: string;
+  leagueName: string;
+  matches: ScoutedMatch[];
+  formationDistribution: Array<{
+    formation: FormationId;
+    count: number;
+    pct: number;
+  }>;
+  tacticsDistribution: Array<{
+    tactic: TeamTactic;
+    count: number;
+    avgLevel: number;
+    pct: number;
+  }>;
+  avgRatingsHome: SectorRatings;
+  avgRatingsAway: SectorRatings;
+  avgRatingsOverall: SectorRatings;
+  avgHatStatsHome: number;
+  avgHatStatsAway: number;
+  avgHatStatsOverall: number;
+  weaknesses: string[];
+  strengths: string[];
+  tacticalAdvice: string[];
+  predictedRatingsAgainstMe: SectorRatings;
+  predictedTactic: TeamTactic;
+  predictedTacticLevel: number;
+  predictedFormation: FormationId;
+}
+
 export interface AppState {
   players: Player[];
   club: ClubSettings;

@@ -208,6 +208,45 @@ app.post('/api/chpp/sync', async (req, res) => {
   }
 });
 
+app.post('/api/chpp/scout-matches', async (req, res) => {
+  try {
+    const {
+      consumerKey,
+      consumerSecret,
+      accessToken,
+      accessTokenSecret,
+      teamId,
+    } = req.body as {
+      consumerKey?: string;
+      consumerSecret?: string;
+      accessToken?: string;
+      accessTokenSecret?: string;
+      teamId?: string | number;
+    };
+
+    if (!consumerKey || !consumerSecret || !accessToken || !accessTokenSecret || !teamId) {
+      res.status(400).json({ error: 'Chybí parametry CHPP nebo teamId pro skauting.' });
+      return;
+    }
+
+    const creds = { consumerKey, consumerSecret, accessToken, accessTokenSecret };
+
+    // Stáhneme archiv zápasů soupeře
+    const matchesXml = await fetchChppXml('matchesarchive', '1.4', creds, {
+      teamID: String(teamId),
+    });
+
+    res.json({
+      teamId,
+      matchesXml,
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err instanceof Error ? err.message : 'Chyba při skautingu zápasů soupeře z CHPP.',
+    });
+  }
+});
+
 const PORT = Number(process.env.PORT ?? 3001);
 app.listen(PORT, () => {
   console.log(`MyHattrick CHPP proxy server běží na http://localhost:${PORT}`);

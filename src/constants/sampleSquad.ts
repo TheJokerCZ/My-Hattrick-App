@@ -607,7 +607,7 @@ export const SAMPLE_SQUAD: Player[] = [
 ];
 
 export const DEFAULT_CLUB_SETTINGS: ClubSettings = {
-  teamName: 'SK Viktoria MyHattrick',
+  teamName: 'FC Gunners Jihlava',
   coachLevel: 7, // dobrý trenér
   coachStyle: 'balanced',
   assistantsLevel: 10,

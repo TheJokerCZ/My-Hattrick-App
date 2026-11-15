@@ -24,6 +24,7 @@ import { ImportModal } from './components/ImportModal';
 import { LineupView } from './components/LineupView';
 import { MatchSimView } from './components/MatchSimView';
 import { ActiveTab, Navbar } from './components/Navbar';
+import { OpponentScoutView } from './components/OpponentScoutView';
 import { SquadView } from './components/SquadView';
 import { TrainingView } from './components/TrainingView';
 
@@ -299,6 +300,28 @@ export function App() {
     );
   };
 
+  const handleApplyOpponentFromScout = (
+    scoutedOpponent: OpponentProfile,
+    isOurTeamHome: boolean
+  ) => {
+    setOpponent(scoutedOpponent);
+    const nextContext: MatchContext = {
+      ...context,
+      venue: isOurTeamHome ? 'home' : 'away',
+    };
+    setContext(nextContext);
+    runOptimizer(
+      players,
+      club,
+      nextContext,
+      scoutedOpponent,
+      objective,
+      respectTraining,
+      allowedFormations
+    );
+    setActiveTab('lineup');
+  };
+
   const activeLineup = variants[activeVariantIdx] ?? variants[0] ?? null;
 
   return (
@@ -371,6 +394,13 @@ export function App() {
                 prev.map((v, idx) => (idx === activeVariantIdx ? updated : v))
               )
             }
+          />
+        )}
+
+        {activeTab === 'scout' && (
+          <OpponentScoutView
+            club={club}
+            onApplyOpponentToLineup={handleApplyOpponentFromScout}
           />
         )}
 

@@ -2,6 +2,7 @@ import React from 'react';
 import {
   Activity,
   BarChart3,
+  Crosshair,
   Download,
   Dumbbell,
   LayoutDashboard,
@@ -11,7 +12,13 @@ import {
 import { TRAINING_META } from '../constants/skillsAndTerms';
 import { ClubSettings } from '../types/hattrick';
 
-export type ActiveTab = 'dashboard' | 'squad' | 'training' | 'lineup' | 'simulator';
+export type ActiveTab =
+  | 'dashboard'
+  | 'squad'
+  | 'training'
+  | 'lineup'
+  | 'scout'
+  | 'simulator';
 
 interface NavbarProps {
   activeTab: ActiveTab;
@@ -27,7 +34,8 @@ const NAV_ITEMS: Array<{ id: ActiveTab; label: string; icon: React.ComponentType
   { id: 'squad', label: 'Kádr', icon: Users },
   { id: 'training', label: 'Trénink & Talenti', icon: Dumbbell },
   { id: 'lineup', label: 'Sestava & Rozestavení', icon: Shield },
-  { id: 'simulator', label: 'Simulátor & Soupeř', icon: BarChart3 },
+  { id: 'scout', label: 'Skaut soupeře', icon: Crosshair },
+  { id: 'simulator', label: 'Simulátor zápasu', icon: BarChart3 },
 ];
 
 export const Navbar: React.FC<NavbarProps> = ({
